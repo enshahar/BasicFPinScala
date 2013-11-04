@@ -1,4 +1,6 @@
-BasicFPinScala
+스칼라로 배우는 함수 프로그래밍 기초
 ==============
 
-Leaning functional program in Scala
+이 문서를 통해 함수언어의 기본을 배울 수 있습니다. 대상 언어로는 스칼라를 사용합니다. 
+
+
