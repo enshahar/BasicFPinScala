@@ -1,4 +1,4 @@
-# 스칼라 초중급입자를 위한 모나드 해설
+# 스칼라 초중급자를 위한 모나드 해설
 
 함수언어, 특히 하스켈과 같은 순수함수언어 계열을 다룰때는 반드시 마주체기 되며,
 스칼라와 같은 하이브리드 언어를 사용하더라도 한번쯤은 관심을 가지게 되는 괴물(?)이 있으니 
@@ -20,7 +20,7 @@
 비판적으로 읽기 바란다.
 
 
-## 값을 감싼 타입 만들기: 생성 함수(constructor)
+## 값을 감싼 타입 만들기: 기본 생성 함수
 
 기본적으로는 어떤 값을 감싼 다른 타입을 만드는 것에서 이 모든 일이 비롯된 것이다.
 어떤 값을 감싸는 이유는 외부에 대해 그 값을 감추거나(정보은닉), 
@@ -33,9 +33,15 @@
 ```
 case class Boxed[T](value:T);
 ```
+조금 더 유용한 클래스를 만들자면 로그를 남기는 `Logged[T]`를 들 수 있다. 
+값의 변화를 추적하면서 리스트에 로그를 남길 때 사용한다.
 
-물론 이 클래스는 별로 유용하지는 않다. 조금 더 유용한 클래스를 만든다면, 스칼라의 `Option` 클래스와 
-같은 것을 들 수 있다. `Option`이라는 이름이 의미하듯, 이 클래스는 어떤 값이 존재하거나(이때는 
+```
+case class Logged[T](value:T, log:List[String])
+```
+
+또 다른 클래스로는 칼라의 `Option` 클래스를 들 수 있다. `Option`이라는 
+이름이 의미하듯, 이 클래스는 어떤 값이 존재하거나(이때는 
 `Some(value)`라는 타입이 된다), 어떤 값이 존재하지 않는(이때는 `None`이라는 하위 타입이 된다)
 스칼라에서는 이런 경우 추상 클래스와 이를 상속한 하위 클래스들로 구현하게 된다.
 이름 혼동을 막기 위해 `MyOption`이라는 이름을 사용한다.
@@ -51,15 +57,8 @@ case object MyNone extends MyOption[Nothing]
 또 다른 예로는 나중에 수행할 계산을 보관하기 위한 `Lazy`라는 이름의 클래스를 들 수 있다.
 
 ```
-class Lazy[T](value: =>T) {
-   def getValue():T = value 
-}
-
-object Lazy {
-   def apply[T](v: =>T):Lazy[T] = 
-   {
-     new Lazy(v)
-   }
+class Lazy[T](value: ()=>T) {
+   def getValue():T = value()
 }
 ```
 
@@ -77,272 +76,393 @@ case object MyNil extends MyList[Nothing]
 MyNil은 리스트의 끝(또는 아무 원소도 없는 리스트)을 표기하는 특별한 리스트이다. 
 앞의 `MyOption`이나 `Lazy`등과 달리 여기서는 `MyList`가 재귀적으로 정의된다.
 
-만약 위 정의만으로 정수 리스트 `MyList(1,2,3,4)`를 정의하려면 
+만약 위 정의만으로 정수 리스트 `MyList(1,2,8)`을 정의하려면 
 ```
-val x:MyList[Int] = Cons(1,Cons(2,Cons(3,MyNil)))
+val x1:MyList[Int] = Cons(1,Cons(2,Cons(8,MyNil)))
 ```
 과 같이 해야 한다. 
 
-위의 모든 클래스의 공통점은 무엇일까? 
-그것은 바로...
+이제 이 모든 클래스 `C[T]`에 대해 `T=>C[T]`타입인 생성함수를 만들 수 있다.
+케이스 클래스라면 이미 스칼라가 제공하는 생성자를 사용할 수도 있다. 그렇지 않다면 직접 객체를 new로 만들어야 한다.
+`Logged`와 같이 클래스의 인자(=필드)가 여러개인 경우에는 T를 튜플 타입으로 생각해서 처리하거나 할 수도 있겠지만,
+편의를 위해 일단은 별도의 함수를 가정하자.
 
-_공통점1: 어떤 타입 T에대해 새 클래스의 객체 C[T]를 만드는 생성자 C()가 존재한다._
+예제에서는 `C[Int]`를 위주로 설명할 것이므로, `Int => C[Int]` 타입의 함수를 정의할 것이다.
+(엄밀히 말하면 REPL에서 def로 만드는 함수나 특정 클래스 안에 정의된 메소드는 함수와는 약간 다르다.
+ 제대로 알려면 스칼라 메소드와 함수 타입에 대해 이해를 해야 하지만, 자세한 설명은 생략한다. 관심 있는 독자는 
+ [스택오버플로](http://stackoverflow.com/questions/2529184/difference-between-method-and-function-in-scala)나 
+ [이 블로그글](http://jim-mcbeath.blogspot.com.au/2009/05/scala-functions-vs-methods.html)을 참조하라.)
 
-라는 것이다. 이 조건은 새로운 객체를 생성하기 위해서는 반드시 필요한 조건이다. 
+```
+// Int => C[Int] 생성 함수들
+// 케이스클래스인 경우 기본제공되는 짝클래스의 생성자함수를 사용 가능하며,
+// 아닌 경우 new를 사용하자.
+def initBoxed(x:Int):Boxed[Int] = Boxed(x)
+def initLogged(x:Int):Logged[Int] = Logged(x, List())
+def initMyOption(x:Int):MyOption[Int] = MySome(x)
+def initLazy(x: =>Int):Lazy[Int] = new Lazy(()=>x)
+def initMyList(x:Int):MyList[Int] = Cons(x,MyNil)
+```
 
+이런 함수가 있어야만 기저 타입(`C[T]`라면 `T`를 기저타입이라고 부르자. 당연하 상위/하위타입은 아니고, 
+부모나 자식타입도 아니고, 제네릭 타입의 타입인자이긴 하지만 타입인자라 부르긴 또 그래서 이런 이름을 
+붙였다)을 만들어낼 수 있으므로, 이런 생성 함수는 반드시 있어야 한다. 이를 _규칙1_ 이라 부르자. 
+다음과 같이 규정할 수 있다.
 
-## "꺼내서 변환후 다시 묶기"
+_감싸기 규칙1: 어떤 타입 `T`를 최소한의 추가 정보(추가 정보의 종류나 구현 등은 `C`에 따라 달라진다)와 함께 감싼 `C[T]`타입의 객체를 만다는 `T=>C[T]` 타입의 기본 생성 함수 가 있어야 한다._
+
+## 연산을 적용한 결과를 감싸기
 
 프로그래밍은 입력에서 출력까지의 일련의 변환 과정이며, 결국 함수의 조합이라 할 수 있다.
 일단은 타입이 바뀌는 경우는 제외하고, 편의를 위해 같은 타입 안에서 일어나는 변환(
 당연히 이런 경우에는 타입은 안 바뀌고 값만 바뀐다)만을 살펴보자. 
 
-임의의 `T`에 대해 다루기 보다 가장 단순한 `Int`에 대해 생각해 보자.
-
-어떤 수를 제곱하는 함수를 생각해 보자.
-
-```
-def squre(x:Int):Int = x * x
-```
-
-이제 앞에서 다뤘던 클래스 C에 대해 `C[Int]` 타입의 값 `v`에 대해 `square`를 적용해  
-새로운 `C[Int]` 값을 만들어 내는 함수를 생각해 보자. 
-
+이제 정수 값을 2배로 만드는 `double`함수와 어떤 정수의 제곱근(실수값이 나오는 경우 정수로 내림)을 반환하는 
+`sqrt` 함수를 생각해 보자.
 
 ```
-def squareBoxed(x:Boxed[Int]):Boxed[Int] = {
-  val v = x.value
-  val new_v = square(v)
-  Boxed(new_v)
+def double(x:Int):Int = x + x
+
+def sqrt(x:Int):Int = Math.sqrt(x).toInt
+```
+
+어떤 정수에 대해 이 함수들을 적용하고, 그 값을 앞에서 정의한 클래스 `C`로 감싸고 싶다.
+물론 감쌀때는 클래스의 의미에 맞게 적절한 방식으로 감싸야만 한다.
+
+`Boxed`의 경우는 그냥 감쌀뿐 특별히 하는 일은 없다.
+
+```
+def doubleBoxed(x:Int):Boxed[Int] = Boxed(x+x)
+def sqrtBoxed(x:Int):Boxed[Int] = Boxed(Math.sqrt(x).toInt)
+```
+
+`Logged`의 경우 각 함수에 맞게 로그를 덧붙이면 될 것이다.
+```
+def doubleLogged(x:Int):Logged[Int] = Logged(x+x, List("double("+x+") = " + (x+x)))
+def sqrtLogged(x:Int):Logged[Int] = Logged(Math.sqrt(x).toInt, List("sqrt("+x+").toInt = " + Math.sqrt(x).toInt))
+```
+
+
+`MyOption`의 경우 각 함수의 성질에 따라 오류라면 `MyNone`, 아니라면 `MySome`을 반환한다.
+```
+def doubleMyOption(x:Int):MyOption[Int] = MySome(x+x)
+def sqrtMyOption(x:Int):MyOption[Int] = if(x>=0) MySome(Math.sqrt(x).toInt) else MyNone
+```
+
+`Lazy`는 바로 계산을 하지 않고 함수를 만들어서 나중에 필요할때 계산을 수행하게 만든다(수행시점을 
+확인하기 위해 간단하게 프린트문을 추가했다). 이때 정수 연산을 미뤄둔다. 
+안그러면 식을 인자로 주는 경우 해당 식이 평가되어 버린다.
+
+```
+def doubleLazy(x: =>Int):Lazy[Int] = new Lazy(()=>{print("lazy double(" + x + ") run\n");x+x})
+def sqrtLazy(x: =>Int):Lazy[Int] = new Lazy(()=>{print("lazy sqrt(" + x + ") run\n");Math.sqrt(x).toInt})
+```
+
+`MyList`는 계산 결과만을 유일한 원소로 포함하는 리스트로 만든다.
+```
+def doubleMyList(x:Int):MyList[Int] = Cons(x+x,MyNil)
+def sqrtMyList(x:Int):MyList[Int] = Cons(Math.sqrt(x).toInt,MyNil)
+```
+
+위 예에서는 `Int`를 받아 `Int`를 반환하는 대신에, 처리 결과와 추가 정보를 한데 묶어서 `C[T]` 타입의 
+값을 반환하는 `Int=>C[Int]`타입의 함수를 만들었다. 
+
+일반적인 타입 `T`에 대해도 마찬가지로 그 타입의 값을 처리해서 적절한 정보를 부가해서 `C[T]` 타입의 
+값을 만들어내는 함수 `T=>C[T]`를 만들 수 있다.
+
+## 조합해 나가기 
+
+앞에서 프로그래래밍은 변환이며 함수 합성의 연속이라고 했다. 두 함수 `f:T=>U`와 `g:U=>V`가 있다면,
+이 두 함수를 합성한 것은 수학적으로는  `g.f`라고 쓰고 `g(f(x))`와 같다.
+
+이를 프로그램에서 사용할 때도 마찬가지이다. .를 쓰긴 좀 그러니 비슷한 `o`를 써서 함성함수를 
+고차함수(high order function)로 만들어보자. 아래는 언커리된(uncurried) 형태의 `o` 함수이다.
+
+```
+def o[T,V,U](f:T=>V, g:V=>U) = (x:T) => g(f(x))
+```
+
+앞에서 봤던 `double`과 `sqrt`를 생각해 보자.
+
+```
+val doubleThenSqrt = o(double, sqrt)
+```
+이제 스칼라에서 실행해 보면 다음과 같다. (8+8)의 제곱근인 4가 제대로 나온다.
+```
+scala> doubleThenSqrt(8)
+res0: Int = 4
+```
+
+필요하다면 커리(curried)된 형태로도 만들 수 있다. 
+
+```
+def o2[T,V,U](f:T=>V) = (g:V=>U) => (x:T) => g(f(x))
+```
+
+다음과 같이 사용할 수 있다.
+
+```
+scala> val doubleThenSqrt2Result = o2(double)(sqrt)(8)
+doubleThenSqrt2Result: Int = 4
+```
+
+`o(sqrt,double)`로 두 함수를 함성했던 것처럼 부가정보가 붙은 연산들도 합성하고 싶다. 
+합성할 수 없다면 제약이 너무 심하니까 꼭 가능했으면 한다.
+
+가장 쉬운 `Boxed`로 무작정 한번 시도해 보자.
+```
+scala> o(doubleBoxed,sqrtBoxed)
+<console>:13: error: type mismatch;
+ found   : Int => Boxed[Int]
+ required: Boxed[Int] => Boxed[Int]
+              o(doubleBoxed,sqrtBoxed)
+                            ^
+```
+
+기대한대로(?) 타입오류가 난다. 타입오류니까 타입을 맞출 방법을 생각해 보자.
+`Int=>C[Int]`타입의 함수 둘울 합성하려면 첫번쨰 함수를 `Int=>Int` 타입으로 만들거나 
+두번째 함수를 `C[Int]=>C[Int]` 타입으로 만들 수 있으면 된다. 굳이 `C[T]`를 만든 이유는
+부가정보를 넣거나 부가적인 처리를 하기 위한 것인데, 첫번쨰 함수를 `Int=>Int` 타입으로 
+만드는 것은 정보 손실이 일어나므로 부적합하다. 따라서 두번째 방법을 생각해보자.
+
+박스로 감싸는 경우는 간단하다.  `Int=>Boxed[Int]` 타입의 함수 `f`를 받고, 
+`Boxed[Int]` 타입의 값 `x`를 받아서, `x`의 내부 값을 벗겨내서 `f`를 적용한 다음에 
+다시 박스로 감싸면 된다.
+
+```
+def mkBoxedFun(f:Int=>Boxed[Int]) = (x:Boxed[Int]) => {
+	val value = x.value    // x(박싱된 값)에서 내부의 값 노출시키기
+	val value2 = f(value)  // 함수 적용
+	value2				   // 값 반환 
 }
 ```
 
-`Boxed[Int]`에 대해 정의하는 것은 어렵지 않다. 박스에서 값을 꺼내서 `square`를 적용한 다음,
-다시 이를 박스에 포장하면 된다. 설명을 위해 가능한 한 중간단계의 함수들을 서로 합성하지 않고 
-명시적으로 값을 만들어 사용했다.
+이제 이를 사용해 보자.
+```
+scala> val x2 = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
+x2: Boxed[Int] = Boxed(4)
+```
+
+`Logged`에 대해 정의해보자. 일단은 위 `mkBoxedFun`을 복사후 붙여넣기 하고, 타입만 맞춰보자.
+웬지 감이 좋다.
 
 ```
-def squareMyOption(x:MyOption[Int]):MyOption[Int] = x match {
-  case MySome(v) => {
-    val new_v = square(v)
-    MySome(new_v)
+def mkLoggedFun(f:Int=>Logged[Int]) = (x:Logged[Int]) => {
+	val value = x.value    // x(로그 포함된 값)에서 내부의 값 노출시키기
+	val value2 = f(value)  // 함수 적용
+	value2				   // 값 반환 
+}
+```
+
+감이 좋았는데, 역시 잘 컴파일되고 타입도 맞는것 같다. 내친김에 적용해보자.
+
+```
+scala> val x3 = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
+x3: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
+```
+
+문제 없나? 아니다. List에 보면 앞쪽 로그는 다 사라졌다. 함수 적용후 나온 value2에는 다른 정보는 없고, f를 적용한 정보만 
+있기 때문이다. 역시 mkXXXFun도 구체적인 XXX 클래스의 종류에 따라 주의깊게 설계해야 함을 알 수 있다. 혹시나했는데 역시나이다.
+
+다시 로그를 합치도록 해보자.
+
+```
+def mkLoggedFunRevised(f:Int=>Logged[Int]) = (x:Logged[Int]) => {
+	val value = x.value    // x(로그 포함된 값)에서 내부의 값 노출시키기
+	val log = x.log        // x에서 로그 가져오기
+	val value2 = f(value)  // 함수 적용
+	Logged(value2.value, log:::value2.log)
+}
+```
+
+이제 실험해보자.
+```
+scala> val x4 = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
+x4: Logged[Int] = Logged(4,List(double(8) = 16, sqrt(16).toInt = 4))
+```
+
+차례로 `double(8) = 16`, `sqrt(16).toInt = 4`이 들어간 리스트가 있다. `4`를 구하기까지 거쳐간 고난의 역사가 
+거기 담겨있다. 좋다!
+
+
+여기까지만 봐도 다음과 같은 말을 할 수 있을 것이다.
+
+_감싸기 규칙2: 정보가 추가된 `T=>C[T]`타입의 끼리 합성하기 위해서는 `T=>C[T]` 타입을 `C[T]=>C[T]`로 바꿔주는 고차함수가 필요한데, 이 함수는 `C`의 종류에 맞게 `주의깊게` 설계해야 한다._
+
+이제 `주의깊게` 다른 클래스에 대해서도 설계해 보자. 먼저 `MyOption`이다.
+```
+def mkMyOptionFun(f: (Int=>MyOption[Int])) = (x: MyOption[Int]) => x match {
+  case MySome(x) => { // 값을 노출시키는 작업은 패턴매칭으로 됨
+    val value2 = f(x) // f 적용하기
+    value2 // 값 반납하기
   }
-  case MyNone => MyNone
-}
-```
-
-옵션의 경우 특별히 신경쓸 부분은 `MyNone`인 경우 `square`를 할 수 없다는 것이다.
-이 부분은 어쩔 수 없이 _특별히 따로 처리해야_ 한다. 
-
-`Boxed[Int]`의 경우 클래스의 필드에서 값을 꺼냈지만(`v = x.value`) 여기서는 패턴매칭을 
-사용해 `MySome`인 경우에는 `v`에 값을 바인드했다는 것에 유의하라. 물론 값을 가져온다는 
-점에서는 패턴매칭이나 필드값을 사용하는 것이나 동일한 결과를 가져온다.
-
-`squareLazy`의 정의는 어떻게 해야 할까? 처음에는 아마 다음과 같이 할 것이다.
-
-```
-def squareLazyInvlid(x:Lazy[Int]):Lazy[Int] = {
-   val v = x.getValue();
-   val new_v = square(v) 
-   Lazy(new_v)
-}
-```
-문제는 이렇게 하면 `Lazy`의 잇점이 없다는 것이다. 예를 들어 
-```
-scala> val x = Lazy({print("Lazy\n");10})
-x: Lazy[Int] = Lazy@3c750bcb
-
-scala> squareLazy(x)
-Lazy
-res17: Lazy[Int] = Lazy@62543f11
-```
-
-`squareLazy(x)`가 호출된 순간 값을 계산해 버린다. 이럴거면 그냥 `Int`를 쓰느니만 못하다.
-따라서, 계산이 이 함수 호출시 일어나지 않고 나중에 일어나도록 _조심스럽게_ 정의할 필요가 있다.
-
-테스트를 위해 `square`를 아래와 같이 다시 정의하자.
-```
-def square(x:Int):Int = { print("Square("+x+")\n"); x*x }
-```
-
-그 후 _조심스레_ squareLazy를 정의할 수 있다.
-
-```
-def squareLazy(x:Lazy[Int]):Lazy[Int] = {
-   def v = x.getValue();
-   def new_v = square(v) 
-   Lazy(new_v)
-}
-```
-
-이제 테스트를 해보자.
-```
-scala> val x = Lazy({print("Lazy\n");8})
-x: Lazy[Int] = Lazy@1f6bb14e
-
-scala> val s = squareLazy(x)
-s: Lazy[Int] = Lazy@6c6cef3a
-
-scala> s.getValue
-Lazy
-Square(8)
-res27: Int = 64
-```
-
-실제 `getValue`를 호출해 값을 얻기 전까지는 계산이 지연됨을 확인할 수 있다.
-
-리스트의 경우 재귀적 정의에 맞춰 결과 리스트를 만들때도 재귀적으로 해줘야 한다는 점이 
-다른 점이다.
-
-```
-def squareMyList(x:MyList[Int]):MyList[Int] = x match {
-  case Cons(v,t) => {
-    val new_v = square(v)
-    Cons(new_v, squareMyList(t))
-  }
-  case MyNil => MyNil
-}
-```
-
-테스트를 해보면(앞에서 변경한 `square`가 쓰여서 계산 단계가 표시된다) 다음과 같다.
-
-```
-scala> squareMyList(Cons(1,Cons(2,MyNil)))
-Square(1)
-Square(2)
-res28: MyList[Int] = Cons(1,Cons(4,MyNil))
-```
-
-우리는 `Int`가 있고, `Int=>Int` 타입의 함수가 있을 때, 
-`C[Int]=>C[Int]`타입의 함수를 만들었다. 각 클래스에 대해 수행했던 작업을 잘 생각해 보면, 
-다음과 같은 공통점을 뽑아낼 수 있다.
-
-_공통점2: 어떤 타입 C[T]에대해 내부 값을 알아낼 수 있는 방법이 존재한다._
-
-_공통점3: T=>T타입 함수가 있을 때, 이를 이용한 C[T]=>C[T] 타입의 변환 함수는 C[T]의 의미에 따라 각각 다른 방식으로 조심스럽게 정의된다._
-
-
-## "꺼내서 변환후 다시 묶기"의 일반화: `map`
-
-앞의 각 구현을 보면 다음과 같은 일반적 요소를 뽑아낼 수 있다.
-
-1. `C[Int]` 타입의 감싸진 값 `x`가 있다.
-2. `Int=>Int` 타입의 함수 `f`가 있다.
-3. `C[Int]`안에서는 `x`에서 내부의 값(`v`)을 뽑아내 `C[Int]`의 의미에 적합하게 `f`를 적용해서 `new_v`를 얻는다.
-4. `C[Int]`의 생성자를 이용해 `new_v`를 감싸서 반환한다.
-
-이제 함수의 타입을 일반화하고(`Int`->`Int` 함수를 일반적인 함수 타입 `T=>R`로 변경) `squareXXX` 함수에 넘기고,
-`squareMyList`등의 이름을 `mapXXX()`라고 변경하자. 
-
-```
-def mapBoxed[T,R](f:T=>R) = (x:Boxed[T]) => {
-  val v = x.value
-  val new_v = f(v)
-  Boxed(new_v)
-}
-```
-
-당연히 `squareBoxed`는 이 함수를 적용해 만들어낼 수 있다.
-
-
-```
-val squareBoxed = mapBoxed(square)
-```
-
-부연설명을 조금 하자면, 커링/언커링 관계를 활용하면 다음과 같이 정의해도 마찬가지라 할 수 있다.
-(스칼라 메소드와 함수 타입에 대해 조금 더 이해를 해야 하지만, 자세한 설명은 생략한다.
- 영어로 되어있지만, [스택오버플로](http://stackoverflow.com/questions/2529184/difference-between-method-and-function-in-scala)나 
- [이 블로그글](http://jim-mcbeath.blogspot.com.au/2009/05/scala-functions-vs-methods.html)을 참조하라.)
-
-```
-def mapBoxedUncurried[T,R](f:T=>R, x:Boxed[T]) = {
-  val v = x.value
-  val new_v = f(v)
-  Boxed(new_v)
+  case MyNone => MyNone	
 }
 
-def squareBoxed2(x:Boxed[Int]) = mapBoxedUncurried(square,x)
-
-val squareBoxed3 = mapBoxedUncurried(square,_:Boxed[Int])
+val x5 = o(mkMyOptionFun(doubleMyOption), mkMyOptionFun(sqrtMyOption))(MySome(8))
+val errval = o(mkMyOptionFun(doubleMyOption), mkMyOptionFun(sqrtMyOption))(MySome(-8))
 ```
 
+실행 결과는 다음과 같다.
+```
+scala> val x5 = o(mkMyOptionFun(doubleMyOption), mkMyOptionFun(sqrtMyOption))(MySome(8))
+x5: MyOption[Int] = MySome(4)
 
-다른 클래스에 대해서도 마찬가지로 정리해 보자.
+scala> val errval = o(mkMyOptionFun(doubleMyOption), mkMyOptionFun(sqrtMyOption))(MySome(-8))
+errval: MyOption[Int] = MyNone
+```
+
+다음은 `Lazy`이다. 다만 `mkLazyFun`등이 인자로 `=>Int`를 받으므로(call-by-name), 
+이를 타입을 맞추기 위해 에타 확장(eta-expansion)해서 (x)=>doubleLazy(x)로 만든다.
 
 ```
-// 옵션
-def mapMyOption[T,R](f:T=>R) = (x:MyOption[T]) => x match {
-  case MySome(v) => {
-    val new_v = f(v)
-    MySome(new_v)
-  }
-  case MyNone => MyNone
+def mkLazyFun(f: (Int=>Lazy[Int])) = (x: Lazy[Int]) => {
+	def value = x.getValue // x서 내부의 값 노출시키기(def로 했으므로 계산하지 않음)
+	def tmpFun() = {	     // x 내부 값을 계산하지 않게 함수를 하나 정의
+		val y = f(value)
+		y.getValue()
+	}
+	new Lazy(tmpFun)
 }
 
-// 지연값
-def mapLazy[T,R](f:T=>R) = (x:Lazy[T]) => {
-   def v = x.getValue();
-   def new_v = f(v) 
-   Lazy(new_v)
-}
+val x6 = o(mkLazyFun((x)=>doubleLazy(x)), mkLazyFun((y)=>sqrtLazy(y)))(initLazy(8))
+x6.getValue()
+```
 
+실행결과는 다음과 같다.
+
+```
+scala> val x6 = o(mkLazyFun((x)=>doubleLazy(x)), mkLazyFun((y)=>sqrtLazy(y)))(initLazy(8))
+x6: Lazy[Int] = Lazy@2346d950
+
+scala> x6.getValue()
+lazy double(8) run
+lazy sqrt(16) run
+res15: Int = 4
+```
+
+`getValue()`를 하기 전까지 아무것도 실행되지 않았음에 유의하라.
+
+다음은 리스트를 할 차례이다. 리스트의 경우 원소가 여럿 있을 수 있으므로 도우미 함수를 정의해 사용한다. 
+함수 내부에서 함수 정의가 가능하므로 외부 네임스페이스가 오염되는 일은 없다.
+
+```
 // 리스트
-def mapMyList[T,R](f:T=>R):MyList[T]=>MyList[R] = (x:MyList[T]) => x match {
-  case Cons(v,t) => {
-    val new_v = f(v)
-    Cons(new_v, mapMyList(f)(t))
+def mkMyListFun(f:Int=>MyList[Int]) = (x:MyList[Int]) => {
+  // f가 만드는 리스트를 모두 합쳐야 하기 때문에 결과적으로는 
+  // flatMap과 비슷한 일을 해야 한다.
+  def append(l1:MyList[Int], l2:MyList[Int]):MyList[Int] = l1 match {
+    case Cons(h,t) => {
+      Cons(h,append(t,l2))
+    }
+    case MyNil => l2
   }
-  case MyNil => MyNil
+  def mapAll(l:MyList[Int]):MyList[Int] = l match {
+    case Cons(h,t) => {
+      val value2 = f(h)
+      val remain = mapAll(t)
+      append(value2,remain)
+    }
+    case MyNil => MyNil
+  }
+  mapAll(x)
 }
 
+// x1은 앞에서 만들었던 리스트이다.
+// x1 = Cons(1,Cons(2,Cons(8,MyNil)))
+val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
 ```
 
-공통된 패턴이 보일 것이다. 지금까지 본 공통점을 정리하고, _공통점 3_ 을 더 일반화 하면 다음과 같다.
-
-_공통점1: 어떤 타입 `T`에대해 새 클래스의 객체 `C[T]`를 만드는 생성자 `C()`가 존재한다._
-
-_공통점2: 어떤 타입 `C[T]`에대해 내부 값을 알아낼 수 있는 방법이 존재한다._
-
-_공통점3: `T=>R` 타입 함수 `f`가 있을 때, 이를 이용해 `C[T]=>C[R]` 타입의 변환을 수행하는 `map` 함수는 `C[T]`의 의미에 따라 각각 다른 방식으로 조심스럽게 정의된다._
-
-
-## 
-
-이제 `T=>R` 타입의 `f`와 `R=>S` 타입의 `g`가 있다고 하자.
-
-다음과 같은 경우를 예로 들 수 있을 것이다.
+실행 결과는 다음과 같다.
 
 ```
-def f(x:Int):(Int,Double) = (x,Math.log(x))
-
-def g(x:(Int,Double)):String = "log(" + x._1 + ") = " + x._2
+scala> val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
+x6: MyList[Int] = Cons(1,Cons(2,Cons(4,MyNil)))
 ```
 
-이제, 두 함수를 합성 할 수 있다.
+리스트의 각 원소에 대해 o(sqrt, double)이 잘 계산되어 있다는 사실을 알 수 있다.
+
+## 조합에 필요한 조건 생각해보기
+
+그럼 과연 위 `mkCFun`을 주의깊게 설계할 때 지켜야 할 지침은 무엇일까?
+
+먼저, `f: T=>C[U]`와 `mkCFun: (T=>C[U]) => C[T]) => C[V]`를 살펴보자.
+
+`f`는 `T` 타입의 값에 어떤 변환을 하고, 기타 추가 정보를 `C`에 기록한 것이다.
+`mkCFun(f)`를 하면 `C[T]=>C[U]` 타입의 함수가 생긴다. 이떄 `C[T]`에 있는 정보는 
+`C[U]`에 병합되도록 `mkCFun`이 주의깊게 만들어져야 한다.
+
+자, 이제 앞의 기본생성함수를 생각해 보자. 이 기본생성함수는 _타입은 맞춰주지만 부가정보는 최소만 기록_ 하는 
+함수이다. 그런데 재미있는 사실은 기본생성함수 자체도 타입이 `T=>C[T]`라는 것이다. 그렇다면 이 함수를 
+적용할 수 있는 곳이 두군데가 생긴다.
+
+1. `mkCFun(initC)`를 생각해 보자. 이 함수는 `C[T]=>C[T]` 타입이 된다. 즉, 어떤 부가정보가 들어있는 
+값을 받아서 같은 타입의 값을 만들어내는 것이다. 당연한 이야기이지만 이경우 가능하면 원래의 값과 동일한 값이 
+반환되면 좋을 것이다. 즉,
+
+`mkCFun(IntC)(x) == x`
+
+여야 한다는 의미이다.
+
+2. `mkCFun(f)(initC(x))`를 생각해 보자. 이 경우 아무 정보도 추가하지 않은 `C[T]`타입의 값에 
+`mkCFun(f)`가 적용되는 것이다. 따라서 가능하면 이때 생기는 결과 `C[U]`에 있는 정보는 
+`f(x)`에서 만들어지는 정보와 동일하면 좋다. 이를 다른말로 표현한다면,
+
+`mkCFun(f)(initC(x)) == f(x)`
+
+여야 한다는 것이다.
+
+
+
+
+
+
+
+
+
+
+
+
+함수 `f: T=>C[U]`, `g: U=>C[V]`가 있다고 하고, 
+
+
+## 조합하기 더 편하게 정리하기
+
+이제 앞에서 조합에 대해 살펴봤던 것을 더 일반화하고 자세히 분석해 보자. 
+정적 타이핑 프로그램 분석에서 가장 중요한 것 중 하나는 타입을 보는 것이다.
+타입 중심으로 살펴 나가자.
+
+`mkCFun`의 타입을 살펴보면 다음과 같다.
 
 ```
-def gof(x:Int) = g(f(x))
+mkCFun: (T=>C[U]) => C[T]) => C[V]
+```
+
+`f`, `g`가 각각 `T=>C[U]`, `U=>C[V]` 타입이라고 할 떄 `mkCFun`을 사용해 이 두 함수를 
+합성(타입을 보며 알겠지만 `f`의 결과에 'g'를 적용하는 것이라 할 수 있다)하려면 다음과 같이 해야 한다.
+
+```
+mkCFun(g)(f(x:T)) : T=>C[V]
+```
+
+여기에서 `mkCFun`을 마치 2항연산자처럼 사용할수 있다면 어떨까?
+
+```
+g mkCFun (f(x:T)) 
+```
+
+만약 `h: V=>C[W]`가 있어서 `h(g(f)))`와 비슷한 합성을 원한다면?
+```
+mkCFun(h)(mkCFun(g)(f(x:T))) : T=>C[V]
+```
+
+이를 다시 2항연산형태로 표현하면 다음과 같다.
+
+```
+h mkCFun (g mkCFun (f(x:T)))
 ```
 
 
-앞에서 정의한 `map`이 있다면, `C[Int]`에서 `C[(Int,Double)]`로 가는 함수와 
-`C[(Int,Double)]`에서 `C[String]`으로 가는 함수는 쉽게 만들 수 있다.
-가능하다면 이 두 함수를 합성해 `C[Int]`에서 `C[String]`으로 가는 
-함수를 만들 수 있다면 좋을 것이다.
 
 
-`Boxed`를 예로 살펴보자.
-
-```
-def mapFBoxed(x:Boxed[Int]):Boxed[(Int,Double)] = mapBoxed(f)(x)
-
-def mapGBoxed(x:Boxed[(Int,Double)]):Boxed[String] = mapBoxed(g)(x)
-
-def mapGBoxedOmapFBoxed(x:Boxed[Int]):Boxed[String] = mapGBoxed(mapFBoxed(x))
-```
-
-그런데, 우리가 `gof`를 가지고 있으므로, 다음과 같이 `mapGOFBoxed`를 정의할 수도 있다.
-```
-def mapGOFBoxed(x:Boxed[Int]):Boxed[String] = mapBoxed(gof)(x)
-```
 
