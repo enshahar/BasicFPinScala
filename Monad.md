@@ -280,9 +280,7 @@ def mapList[T,R](x:List[T], f:T=>R):List[R] = x match {
 
 ```
 
-공통된 패턴이 어느정도 보일 것이다. 
-
-먼저, 지금까지 본 공통점을 정리하고, _공통점 3_ 을 더 일반화 하면 다음과 같다.
+공통된 패턴이 보일 것이다. 지금까지 본 공통점을 정리하고, _공통점 3_ 을 더 일반화 하면 다음과 같다.
 
 _공통점1: 어떤 타입 `T`에대해 새 클래스의 객체 `C[T]`를 만드는 생성자 `C()`가 존재한다._
 
@@ -291,7 +289,73 @@ _공통점2: 어떤 타입 `C[T]`에대해 내부 값을 알아낼 수 있는 �
 _공통점3: `T=>R` 타입 함수 `f`가 있을 때, 이를 이용해 `C[T]=>C[R]` 타입의 변환을 수행하는 `map` 함수는 `C[T]`의 의미에 따라 각각 다른 방식으로 조심스럽게 정의된다._
 
 
-## map끼리 합성하기
+## 
+
+이제 `T=>R` 타입의 `f`와 `R=>S` 타입의 `g`가 있다고 하자.
+
+다음과 같은 경우를 예로 들 수 있을 것이다.
+
+```
+def f(x:Int):(Int,Double) = (x,Math.log(x))
+
+def g(x:(Int,Double)):String = "log(" + x._1 + ") = " + x._2
+```
+
+이제, 두 함수의 합성 `def gof(x:Int) = g(f(x))`를 생각해 보자.
+
+앞에서 정의한 `map`이 있다면, `C[Int]`에서 `C[(Int,Double)]`로 가는 함수와 
+`C[(Int,Double)]`에서 `C[String]`으로 가는 함수는 쉽게 만들 수 있다.
+또한 이 둘을 조합하면 `C[Int]`에서 `C[String]`으로 바로 변환하는 함수도 만들 수 있다.
+
+`Boxed`를 예로 살펴보자.
+
+```
+def mapFBoxed(x:Boxed[Int]) = mapBoxed(x, f)
+
+def mapGBoxed(x:Boxed[(Int,Double)]) = mapBoxed(x, g)
+
+def mapGBoxedOmapFBoxed(x:Boxed[Int]) = mapGBoxed(mapFBoxed(x))
+```
+
+그런데, 우리가 `gof`를 가지고 있으므로, 다음과 같이 `mapGOFBoxed`를 정의할 수도 있다.
+```
+def mapGOFBoxed(x:Boxed[Int]) = mapBoxed(x,gof)
+```
+
+`Option`, `Lazy`에 대해 마찬가지 작업을 해보자.
+
+```
+// 옵션에 대해
+def mapFOption(x:Option[Int]) = mapOption(x, f)
+
+def mapGOption(x:Option[(Int,Double)]) = mapOption(x, g)
+
+def mapGOptionOmapFOption(x:Option[Int]) = mapGOption(mapFOption(x))
+
+def mapGOFOption(x:Option[Int]) = mapOption(x,gof)
+
+// 지연값에 대해
+def mapFLazy(x:Lazy[Int]) = mapLazy(x, f)
+
+def mapGLazy(x:Lazy[(Int,Double)]) = mapLazy(x, g)
+
+def mapGLazyOmapFLazy(x:Lazy[Int]) = mapGLazy(mapFLazy(x))
+
+def mapGOFLazy(x:Lazy[Int]) = mapLazy(x,gof)
+
+// 리스트에 대해
+def mapFList(x:List[Int]) = mapList(x, f)
+
+def mapGList(x:List[(Int,Double)]) = mapList(x, g)
+
+def mapGListOmapFList(x:List[Int]) = mapGList(mapFList(x))
+
+def mapGOFList(x:List[Int]) = mapList(x,gof)
+```
+
+
+
+
 
 
 
