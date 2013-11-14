@@ -55,7 +55,7 @@ case class Cons[B](var hd: B, var tl: MyList[B]) extends MyList[B]
 case object MyNil extends MyList[Nothing]
 
 // 리스트 만들기 예제
-val x:MyList[Int] = Cons(1,Cons(2,Cons(3,MyNil)))
+val x1:MyList[Int] = Cons(1,Cons(2,Cons(8,MyNil)))
 
 def doubleMyList(x:Int):MyList[Int] = Cons(x+x,MyNil)
 def sqrtMyList(x:Int):MyList[Int] = Cons(Math.sqrt(x).toInt,MyNil)
@@ -94,9 +94,9 @@ def mkBoxedFun(f:Int=>Boxed[Int]) = (x:Boxed[Int]) => {
 // doubleBoxed와 sqrtBoxed 합성해 사용해 보기
 // sqrt(8+8) = Boxed(4)가 결과값임
 
-val x = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
+val x2 = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
 
-//scala> val x = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
+//scala> val x2 = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
 //x: Boxed[Int] = Boxed(4)
 
 /*
@@ -113,10 +113,10 @@ def mkLoggedFun(f:Int=>Logged[Int]) = (x:Logged[Int]) => {
 /*
 합성해보자.
 */
-val x = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
+val x3 = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
 /*
-scala> val x = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
-x: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
+scala> val x3 = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
+x1: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
 
 문제 없나? 아니다. List에 보면 앞쪽 로그는 다 사라졌다. 함수 적용후 나온 value2에는 다른 정보는 없고, f를 적용한 정보만 
 있기 때문이다. 역시 mkXXXFun도 구체적인 XXX 클래스의 종류에 따라 주의깊게 설계해야 함을 알 수 있다.
@@ -133,10 +133,10 @@ def mkLoggedFunRevised(f:Int=>Logged[Int]) = (x:Logged[Int]) => {
 /*
 이제 실험해보자.
 */
-val x = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
+val x4 = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
 /*
-scala> val x = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
-x: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
+scala> val x4 = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
+x4: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
 
 좋다. 나머지 클래스에 대해서도 구현 가능하다.
 */
@@ -151,29 +151,42 @@ def mkLazyFun(f: (Int=>Lazy[Int])) = (x: Lazy[Int]) => {
 	Lazy(tmpFun)
 }
 
-/*
-scala> val x = o(mkLazyFun((x)=>doubleLazy(x)), mkLazyFun((y)=>sqrtLazy(y)))(initLazy(8))
-x: Lazy[Int] = Lazy@7bdd5b15
+val x5 = o(mkLazyFun((x)=>doubleLazy(x)), mkLazyFun((y)=>sqrtLazy(y)))(initLazy(8))
+x5.getValue()
 
-scala> x.getValue()
+/*
+scala> val x5 = o(mkLazyFun((x)=>doubleLazy(x)), mkLazyFun((y)=>sqrtLazy(y)))(initLazy(8))
+x5: Lazy[Int] = Lazy@7bdd5b15
+
+scala> x5.getValue()
 lazy double(8) run
 lazy sqrt(16) run
 res44: Int = 4
-
+*/
 
 // 리스트
-def mkListFun(f:Int=>MyList[Int]) = (x:MyList[Int]) => {
-  def mapAll(l:MyList[Int]):MyList[Int] = {
+def mkMyListFun(f:Int=>MyList[Int]) = (x:MyList[Int]) => {
+  // f가 만드는 리스트를 모두 합쳐야 하기 때문에 결과적으로는 
+  // flatMap과 비슷한 일을 해야 한다.
+  def append(l1:MyList[Int], l2:MyList[Int]):MyList[Int] = l1 match {
+    case Cons(h,t) => {
+      Cons(h,append(t,l2))
+    }
+    case MyNil => l2
+  }
+  def mapAll(l:MyList[Int]):MyList[Int] = l match {
     case Cons(h,t) => {
       val value2 = f(h)
       val remain = mapAll(t)
-      value2:::remain
+      append(value2,remain)
     }
     case MyNil => MyNil
   }
   mapAll(x)
 }
 
-
+// x1은 앞에서 만들었던 리스트이다.
+// x1 = Cons(1,Cons(2,Cons(8,MyNil)))
+val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
 
 
