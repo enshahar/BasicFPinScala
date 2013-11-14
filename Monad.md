@@ -38,13 +38,14 @@ case class Boxed[T](value:T);
 같은 것을 들 수 있다. `Option`이라는 이름이 의미하듯, 이 클래스는 어떤 값이 존재하거나(이때는 
 `Some(value)`라는 타입이 된다), 어떤 값이 존재하지 않는(이때는 `None`이라는 하위 타입이 된다)
 스칼라에서는 이런 경우 추상 클래스와 이를 상속한 하위 클래스들로 구현하게 된다.
+이름 혼동을 막기 위해 `MyOption`이라는 이름을 사용한다.
 
 ```
-abstract class Option[+A]
+abstract class MyOption[+A]
 
-case class Some[+A](x: A) extends Option[A]
+case class MySome[+A](x: A) extends MyOption[A]
 
-case object None extends Option[Nothing] 
+case object MyNone extends MyOption[Nothing] 
 ```
 
 또 다른 예로는 나중에 수행할 계산을 보관하기 위한 `Lazy`라는 이름의 클래스를 들 수 있다.
@@ -65,20 +66,20 @@ object Lazy {
 다른 형태로는 컬렉션이 있다. 기본적 컬렉션의 하나인 리스트를 예로 들어보자.
 
 ```
-abstract class List[+A] 
+abstract class MyList[+A] 
 
-case class ::[B](var hd: B, var tl: List[B]) extends List[B]
+case class Cons[B](var hd: B, var tl: MyList[B]) extends MyList[B]
 
-case object Nil extends List[Nothing]
+case object MyNil extends MyList[Nothing]
 ```
 
-`::`는 머리(`hd`, 어떤 타입의 값)와 꼬리(`tl`, 리스트)로 이루어진 리스트이고, 
-Nil은 리스트의 끝(또는 아무 원소도 없는 리스트)을 표기하는 특별한 리스트이다. 
-앞의 `Option`이나 `Lazy`등과 달리 여기서는 `List`가 재귀적으로 정의된다.
+`Cons`는 머리(`hd`, 어떤 타입의 값)와 꼬리(`tl`, 리스트)로 이루어진 리스트이고, 
+MyNil은 리스트의 끝(또는 아무 원소도 없는 리스트)을 표기하는 특별한 리스트이다. 
+앞의 `MyOption`이나 `Lazy`등과 달리 여기서는 `MyList`가 재귀적으로 정의된다.
 
-만약 위 정의만으로 정수 리스트 `List(1,2,3,4)`를 정의하려면 
+만약 위 정의만으로 정수 리스트 `MyList(1,2,3,4)`를 정의하려면 
 ```
-val x:List[Int] = ::(1,::(2,::(3,Nil)))
+val x:MyList[Int] = Cons(1,Cons(2,Cons(3,MyNil)))
 ```
 과 같이 해야 한다. 
 
@@ -121,26 +122,26 @@ def squareBoxed(x:Boxed[Int]):Boxed[Int] = {
 명시적으로 값을 만들어 사용했다.
 
 ```
-def squareOption(x:Option[Int]):Option[Int] = x match {
-  case Some(v) => {
+def squareMyOption(x:MyOption[Int]):MyOption[Int] = x match {
+  case MySome(v) => {
     val new_v = square(v)
-    Some(new_v)
+    MySome(new_v)
   }
-  case None => None
+  case MyNone => MyNone
 }
 ```
 
-옵션의 경우 특별히 신경쓸 부분은 `None`인 경우 `square`를 할 수 없다는 것이다.
+옵션의 경우 특별히 신경쓸 부분은 `MyNone`인 경우 `square`를 할 수 없다는 것이다.
 이 부분은 어쩔 수 없이 _특별히 따로 처리해야_ 한다. 
 
 `Boxed[Int]`의 경우 클래스의 필드에서 값을 꺼냈지만(`v = x.value`) 여기서는 패턴매칭을 
-사용해 `Some`인 경우에는 `v`에 값을 바인드했다는 것에 유의하라. 물론 값을 가져온다는 
+사용해 `MySome`인 경우에는 `v`에 값을 바인드했다는 것에 유의하라. 물론 값을 가져온다는 
 점에서는 패턴매칭이나 필드값을 사용하는 것이나 동일한 결과를 가져온다.
 
 `squareLazy`의 정의는 어떻게 해야 할까? 처음에는 아마 다음과 같이 할 것이다.
 
 ```
-def squareLazy(x:Lazy[Int]):Lazy[Int] = {
+def squareLazyInvlid(x:Lazy[Int]):Lazy[Int] = {
    val v = x.getValue();
    val new_v = square(v) 
    Lazy(new_v)
@@ -194,22 +195,22 @@ res27: Int = 64
 다른 점이다.
 
 ```
-def squareList(x:List[Int]):List[Int] = x match {
-  case ::(v,t) => {
+def squareMyList(x:MyList[Int]):MyList[Int] = x match {
+  case Cons(v,t) => {
     val new_v = square(v)
-    ::(new_v, squareList(t))
+    Cons(new_v, squareMyList(t))
   }
-  case Nil => Nil
+  case MyNil => MyNil
 }
 ```
 
 테스트를 해보면(앞에서 변경한 `square`가 쓰여서 계산 단계가 표시된다) 다음과 같다.
 
 ```
-scala> squareList(::(1,::(2,Nil)))
+scala> squareMyList(Cons(1,Cons(2,MyNil)))
 Square(1)
 Square(2)
-res28: List[Int] = ::(1,::(4,Nil))
+res28: MyList[Int] = Cons(1,Cons(4,MyNil))
 ```
 
 우리는 `Int`가 있고, `Int=>Int` 타입의 함수가 있을 때, 
@@ -231,35 +232,51 @@ _공통점3: T=>T타입 함수가 있을 때, 이를 이용한 C[T]=>C[T] 타입
 4. `C[Int]`의 생성자를 이용해 `new_v`를 감싸서 반환한다.
 
 이제 함수의 타입을 일반화하고(`Int`->`Int` 함수를 일반적인 함수 타입 `T=>R`로 변경) `squareXXX` 함수에 넘기고,
-`squareList`등의 이름을 `mapXXX()`라고 변경하자. 
+`squareMyList`등의 이름을 `mapXXX()`라고 변경하자. 
 
 ```
-def mapBoxed[T,R](x:Boxed[T], f:T=>R):Boxed[R] = {
+def mapBoxed[T,R](f:T=>R) = (x:Boxed[T]) => {
   val v = x.value
   val new_v = f(v)
   Boxed(new_v)
 }
 ```
 
-당연히 `squareBoxed`는 이 함수를 부분적용해 만들어낼 수 있다(스칼라는 
-타입 추론을 제공하기 때문에 타입을 모두 다 명시할 필요가 없음을 
-보여주기 위해 아래 식에서만 타입 인자를 생략해 보았다)
+당연히 `squareBoxed`는 이 함수를 적용해 만들어낼 수 있다.
 
 
 ```
-val squareBoxed = (x:Boxed[Int])=>mapBoxed(x, square)
+val squareBoxed = mapBoxed(square)
 ```
+
+부연설명을 조금 하자면, 커링/언커링 관계를 활용하면 다음과 같이 정의해도 마찬가지라 할 수 있다.
+(스칼라 메소드와 함수 타입에 대해 조금 더 이해를 해야 하지만, 자세한 설명은 생략한다.
+ 영어로 되어있지만, [스택오버플로](http://stackoverflow.com/questions/2529184/difference-between-method-and-function-in-scala)나 
+ [이 블로그글](http://jim-mcbeath.blogspot.com.au/2009/05/scala-functions-vs-methods.html)을 참조하라.)
+
+```
+def mapBoxedUncurried[T,R](f:T=>R, x:Boxed[T]) = {
+  val v = x.value
+  val new_v = f(v)
+  Boxed(new_v)
+}
+
+def squareBoxed2(x:Boxed[Int]) = mapBoxedUncurried(square,x)
+
+val squareBoxed3 = mapBoxedUncurried(square,_:Boxed[Int])
+```
+
 
 다른 클래스에 대해서도 마찬가지로 정리해 보자.
 
 ```
 // 옵션
-def mapOption[T,R](x:Option[T], f:T=>R):Option[R] = x match {
-  case Some(v) => {
+def mapMyOption[T,R](f:T=>R) = (x:MyOption[T]) => x match {
+  case MySome(v) => {
     val new_v = f(v)
-    Some(new_v)
+    MySome(new_v)
   }
-  case None => None
+  case MyNone => MyNone
 }
 
 // 지연값
@@ -270,12 +287,12 @@ def mapLazy[T,R](x:Lazy[T], f:T=>R):Lazy[R] = {
 }
 
 // 리스트
-def mapList[T,R](x:List[T], f:T=>R):List[R] = x match {
-  case ::(v,t) => {
+def mapMyList[T,R](x:MyList[T], f:T=>R):MyList[R] = x match {
+  case Cons(v,t) => {
     val new_v = f(v)
-    ::(new_v, mapList(t, f))
+    Cons(new_v, mapMyList(t, f))
   }
-  case Nil => Nil
+  case MyNil => MyNil
 }
 
 ```
@@ -310,29 +327,29 @@ def g(x:(Int,Double)):String = "log(" + x._1 + ") = " + x._2
 `Boxed`를 예로 살펴보자.
 
 ```
-def mapFBoxed(x:Boxed[Int]) = mapBoxed(x, f)
+def mapFBoxed(x:Boxed[Int]):Boxed[(Int,Double)] = mapBoxed(x, f)
 
-def mapGBoxed(x:Boxed[(Int,Double)]) = mapBoxed(x, g)
+def mapGBoxed(x:Boxed[(Int,Double)]):Boxed[String] = mapBoxed(x, g)
 
-def mapGBoxedOmapFBoxed(x:Boxed[Int]) = mapGBoxed(mapFBoxed(x))
+def mapGBoxedOmapFBoxed(x:Boxed[Int]):Boxed[String] = mapGBoxed(mapFBoxed(x))
 ```
 
 그런데, 우리가 `gof`를 가지고 있으므로, 다음과 같이 `mapGOFBoxed`를 정의할 수도 있다.
 ```
-def mapGOFBoxed(x:Boxed[Int]) = mapBoxed(x,gof)
+def mapGOFBoxed(x:Boxed[Int]):Boxed[String] = mapBoxed(x,gof)
 ```
 
-`Option`, `Lazy`에 대해 마찬가지 작업을 해보자.
+`MyOption`, `Lazy`에 대해 마찬가지 작업을 해보자. 함수의 반환 타입은 생략한다.
 
 ```
 // 옵션에 대해
-def mapFOption(x:Option[Int]) = mapOption(x, f)
+def mapFMyOption(x:MyOption[Int]) = mapMyOption(x, f)
 
-def mapGOption(x:Option[(Int,Double)]) = mapOption(x, g)
+def mapGMyOption(x:MyOption[(Int,Double)]) = mapMyOption(x, g)
 
-def mapGOptionOmapFOption(x:Option[Int]) = mapGOption(mapFOption(x))
+def mapGMyOptionOmapFMyOption(x:MyOption[Int]) = mapGMyOption(mapFMyOption(x))
 
-def mapGOFOption(x:Option[Int]) = mapOption(x,gof)
+def mapGOFMyOption(x:MyOption[Int]) = mapMyOption(x,gof)
 
 // 지연값에 대해
 def mapFLazy(x:Lazy[Int]) = mapLazy(x, f)
@@ -344,21 +361,12 @@ def mapGLazyOmapFLazy(x:Lazy[Int]) = mapGLazy(mapFLazy(x))
 def mapGOFLazy(x:Lazy[Int]) = mapLazy(x,gof)
 
 // 리스트에 대해
-def mapFList(x:List[Int]) = mapList(x, f)
+def mapFMyList(x:MyList[Int]) = mapMyList(x, f)
 
-def mapGList(x:List[(Int,Double)]) = mapList(x, g)
+def mapGMyList(x:MyList[(Int,Double)]) = mapMyList(x, g)
 
-def mapGListOmapFList(x:List[Int]) = mapGList(mapFList(x))
+def mapGMyListOmapFMyList(x:MyList[Int]) = mapGMyList(mapFMyList(x))
 
-def mapGOFList(x:List[Int]) = mapList(x,gof)
+def mapGOFMyList(x:MyList[Int]) = mapMyList(x,gof)
 ```
-
-
-
-
-
-
-
-
-
 
