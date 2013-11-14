@@ -1,4 +1,4 @@
-# 함수언어 입문자를 위한 모나드 해설
+# 스칼라 초중급입자를 위한 모나드 해설
 
 함수언어, 특히 하스켈과 같은 순수함수언어 계열을 다룰때는 반드시 마주체기 되며,
 스칼라와 같은 하이브리드 언어를 사용하더라도 한번쯤은 관심을 가지게 되는 괴물(?)이 있으니 
@@ -280,17 +280,17 @@ def mapMyOption[T,R](f:T=>R) = (x:MyOption[T]) => x match {
 }
 
 // 지연값
-def mapLazy[T,R](x:Lazy[T], f:T=>R):Lazy[R] = {
+def mapLazy[T,R](f:T=>R) = (x:Lazy[T]) => {
    def v = x.getValue();
    def new_v = f(v) 
    Lazy(new_v)
 }
 
 // 리스트
-def mapMyList[T,R](x:MyList[T], f:T=>R):MyList[R] = x match {
+def mapMyList[T,R](f:T=>R):MyList[T]=>MyList[R] = (x:MyList[T]) => x match {
   case Cons(v,t) => {
     val new_v = f(v)
-    Cons(new_v, mapMyList(t, f))
+    Cons(new_v, mapMyList(f)(t))
   }
   case MyNil => MyNil
 }
@@ -318,55 +318,31 @@ def f(x:Int):(Int,Double) = (x,Math.log(x))
 def g(x:(Int,Double)):String = "log(" + x._1 + ") = " + x._2
 ```
 
-이제, 두 함수의 합성 `def gof(x:Int) = g(f(x))`를 생각해 보자.
+이제, 두 함수를 합성 할 수 있다.
+
+```
+def gof(x:Int) = g(f(x))
+```
+
 
 앞에서 정의한 `map`이 있다면, `C[Int]`에서 `C[(Int,Double)]`로 가는 함수와 
 `C[(Int,Double)]`에서 `C[String]`으로 가는 함수는 쉽게 만들 수 있다.
-또한 이 둘을 조합하면 `C[Int]`에서 `C[String]`으로 바로 변환하는 함수도 만들 수 있다.
+가능하다면 이 두 함수를 합성해 `C[Int]`에서 `C[String]`으로 가는 
+함수를 만들 수 있다면 좋을 것이다.
+
 
 `Boxed`를 예로 살펴보자.
 
 ```
-def mapFBoxed(x:Boxed[Int]):Boxed[(Int,Double)] = mapBoxed(x, f)
+def mapFBoxed(x:Boxed[Int]):Boxed[(Int,Double)] = mapBoxed(f)(x)
 
-def mapGBoxed(x:Boxed[(Int,Double)]):Boxed[String] = mapBoxed(x, g)
+def mapGBoxed(x:Boxed[(Int,Double)]):Boxed[String] = mapBoxed(g)(x)
 
 def mapGBoxedOmapFBoxed(x:Boxed[Int]):Boxed[String] = mapGBoxed(mapFBoxed(x))
 ```
 
 그런데, 우리가 `gof`를 가지고 있으므로, 다음과 같이 `mapGOFBoxed`를 정의할 수도 있다.
 ```
-def mapGOFBoxed(x:Boxed[Int]):Boxed[String] = mapBoxed(x,gof)
-```
-
-`MyOption`, `Lazy`에 대해 마찬가지 작업을 해보자. 함수의 반환 타입은 생략한다.
-
-```
-// 옵션에 대해
-def mapFMyOption(x:MyOption[Int]) = mapMyOption(x, f)
-
-def mapGMyOption(x:MyOption[(Int,Double)]) = mapMyOption(x, g)
-
-def mapGMyOptionOmapFMyOption(x:MyOption[Int]) = mapGMyOption(mapFMyOption(x))
-
-def mapGOFMyOption(x:MyOption[Int]) = mapMyOption(x,gof)
-
-// 지연값에 대해
-def mapFLazy(x:Lazy[Int]) = mapLazy(x, f)
-
-def mapGLazy(x:Lazy[(Int,Double)]) = mapLazy(x, g)
-
-def mapGLazyOmapFLazy(x:Lazy[Int]) = mapGLazy(mapFLazy(x))
-
-def mapGOFLazy(x:Lazy[Int]) = mapLazy(x,gof)
-
-// 리스트에 대해
-def mapFMyList(x:MyList[Int]) = mapMyList(x, f)
-
-def mapGMyList(x:MyList[(Int,Double)]) = mapMyList(x, g)
-
-def mapGMyListOmapFMyList(x:MyList[Int]) = mapGMyList(mapFMyList(x))
-
-def mapGOFMyList(x:MyList[Int]) = mapMyList(x,gof)
+def mapGOFBoxed(x:Boxed[Int]):Boxed[String] = mapBoxed(gof)(x)
 ```
 
