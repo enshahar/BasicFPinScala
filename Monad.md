@@ -95,7 +95,7 @@ val x1:MyList[Int] = Cons(1,Cons(2,Cons(8,MyNil)))
 
 ```
 // Int => C[Int] 생성 함수들
-// 케이스클래스인 경우 기본제공되는 짝클래스의 생성자함수를 사용 가능하며,
+// 케이스클래스인 경우 기본제공되는 클래스 짝 객체에 있는  생성자함수를 사용 가능하며,
 // 아닌 경우 new를 사용하자.
 def initBoxed(x:Int):Boxed[Int] = Boxed(x)
 def initLogged(x:Int):Logged[Int] = Logged(x, List())
