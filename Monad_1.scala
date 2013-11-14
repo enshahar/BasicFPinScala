@@ -93,8 +93,11 @@ def mkBoxedFun(f:Int=>Boxed[Int]) = (x:Boxed[Int]) => {
 
 // doubleBoxed와 sqrtBoxed 합성해 사용해 보기
 // sqrt(8+8) = Boxed(4)가 결과값임
-scala> val x = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
-x: Boxed[Int] = Boxed(4)
+
+val x = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
+
+//scala> val x = o(mkBoxedFun(doubleBoxed), mkBoxedFun(sqrtBoxed))(initBoxed(8))
+//x: Boxed[Int] = Boxed(4)
 
 /*
 문제 없어 보인다... 
@@ -110,10 +113,11 @@ def mkLoggedFun(f:Int=>Logged[Int]) = (x:Logged[Int]) => {
 /*
 합성해보자.
 */
+val x = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
+/*
 scala> val x = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged(8))
 x: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
 
-/*
 문제 없나? 아니다. List에 보면 앞쪽 로그는 다 사라졌다. 함수 적용후 나온 value2에는 다른 정보는 없고, f를 적용한 정보만 
 있기 때문이다. 역시 mkXXXFun도 구체적인 XXX 클래스의 종류에 따라 주의깊게 설계해야 함을 알 수 있다.
 
@@ -129,10 +133,11 @@ def mkLoggedFunRevised(f:Int=>Logged[Int]) = (x:Logged[Int]) => {
 /*
 이제 실험해보자.
 */
+val x = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
+/*
 scala> val x = o(mkLoggedFunRevised(doubleLogged), mkLoggedFunRevised(sqrtLogged))(initLogged(8))
 x: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
 
-/*
 좋다. 나머지 클래스에 대해서도 구현 가능하다.
 */
 
@@ -146,6 +151,7 @@ def mkLazyFun(f: (Int=>Lazy[Int])) = (x: Lazy[Int]) => {
 	Lazy(tmpFun)
 }
 
+/*
 scala> val x = o(mkLazyFun((x)=>doubleLazy(x)), mkLazyFun((y)=>sqrtLazy(y)))(initLazy(8))
 x: Lazy[Int] = Lazy@7bdd5b15
 
@@ -153,6 +159,20 @@ scala> x.getValue()
 lazy double(8) run
 lazy sqrt(16) run
 res44: Int = 4
+
+
+// 리스트
+def mkListFun(f:Int=>MyList[Int]) = (x:MyList[Int]) => {
+  def mapAll(l:MyList[Int]):MyList[Int] = {
+    case Cons(h,t) => {
+      val value2 = f(h)
+      val remain = mapAll(t)
+      value2:::remain
+    }
+    case MyNil => MyNil
+  }
+  mapAll(x)
+}
 
 
 
