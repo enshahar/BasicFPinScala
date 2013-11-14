@@ -194,8 +194,8 @@ def mkMyListFun(f:Int=>MyList[Int]) = (x:MyList[Int]) => {
 
 // x1은 앞에서 만들었던 리스트이다.
 // x1 = Cons(1,Cons(2,Cons(8,MyNil)))
-val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
+val x7 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
 
 //실행결과:
-//scala> val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
-//x6: MyList[Int] = Cons(1,Cons(2,Cons(4,MyNil)))
+//scala> val x7 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
+//x7: MyList[Int] = Cons(1,Cons(2,Cons(4,MyNil)))
