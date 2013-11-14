@@ -373,14 +373,14 @@ def mkMyListFun(f:Int=>MyList[Int]) = (x:MyList[Int]) => {
 
 // x1은 앞에서 만들었던 리스트이다.
 // x1 = Cons(1,Cons(2,Cons(8,MyNil)))
-val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
+val x7 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
 ```
 
 실행 결과는 다음과 같다.
 
 ```
-scala> val x6 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
-x6: MyList[Int] = Cons(1,Cons(2,Cons(4,MyNil)))
+scala> val x7 = o(mkMyListFun(doubleMyList), mkMyListFun(sqrtMyList))(x1)
+x7: MyList[Int] = Cons(1,Cons(2,Cons(4,MyNil)))
 ```
 
 리스트의 각 원소에 대해 `o(double, sqrt)`이 잘 계산되어 있다는 사실을 알 수 있다.
