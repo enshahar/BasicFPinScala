@@ -534,7 +534,8 @@ _규칙1_은 사실은 `initC` 함수를 어떻게 만들지에 대한 조언이
 
 3. `(m >>= f) >>= g === m >>= ( \x -> (f x >>= g))` 또는 ` (m bind f) bind g == m bind  { \x -> ((f x) bind g ) }`
 
-[다음 글](https://github.com/enshahar/BasicFPinScala/blob/master/Monad_Rules.md)에서는 위 세가지 모나드 규칙의 의미를 구체적인 클래스를 대상으로 분석해 볼 것이다.
+[다음 글](https://github.com/enshahar/BasicFPinScala/blob/master/Monad_Rules.md)에서는 위 세가지 모나드 규칙의 
+의미를 구체적인 클래스를 대상으로 분석해 본다. 또한 모나드 규칙이 하스켈에서 `do`와 엮일 때 어떤 의미가 있는지 살펴본다.
 
 
 
