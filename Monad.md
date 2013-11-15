@@ -516,7 +516,7 @@ _규칙1_은 사실은 `initC` 함수를 어떻게 만들지에 대한 조언이
 
 1. `(return x) >>= f == f x`  또는  `(unit x) bind f == f(x)`
 
-2. `m >>= return == m` 또는 `m bind return == m`
+2. `m >>= return == m` 또는 `m bind unit == m`
 
 3. `(m >>= f) >>= g === m >>= ( \x -> (f x >>= g))` 또는 ` (m bind f) bind g == m bind  { \x -> ((f x) bind g ) }`
 
