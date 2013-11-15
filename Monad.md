@@ -278,8 +278,8 @@ scala> val x3 = o(mkLoggedFun(doubleLogged), mkLoggedFun(sqrtLogged))(initLogged
 x3: Logged[Int] = Logged(4,List(sqrt(16).toInt = 4))
 ```
 
-문제 없나? 아니다. List에 보면 앞쪽 로그는 다 사라졌다. 함수 적용후 나온 value2에는 다른 정보는 없고, f를 적용한 정보만 
-있기 때문이다. 역시 mkXXXFun도 구체적인 XXX 클래스의 종류에 따라 주의깊게 설계해야 함을 알 수 있다. 혹시나했는데 역시나이다.
+문제 없나? 아니다. `List`에 보면 앞쪽 로그는 다 사라졌다. 함수 적용후 나온 `value2`에는 다른 정보는 없고, `f`를 적용한 정보만 
+있기 때문이다. 역시 `mkXXXFun`도 구체적인 `XXX` 클래스의 종류에 따라 주의깊게 설계해야 함을 알 수 있다. 혹시나했는데 역시나이다.
 
 다시 로그를 합치도록 해보자.
 
