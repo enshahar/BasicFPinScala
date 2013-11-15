@@ -120,8 +120,6 @@ x2: MyList[Int] = Cons(4,MyNil)
 
 여기서 `e1 >> e2`는 `e1 >>= {(_) >>= e2}`로 바인딩한 변수를 무시할뿐이다. 따라서 이 식은 따로 검토할 필요가 없다.
 
-
-
 ## `m bind unit` == `m` 의 의미
 
 잘 살펴보자. 이미 정보가 추가된 모나드 값 `m`에 대해 `unit`을 `bind` 했다.
@@ -170,7 +168,7 @@ res31: MyList[Int] = Cons(1,Cons(2,Cons(3,MyNil)))
 앞에서 `bind`가 `m`의 부가정보를 `unit`이 반환한 모나드 객체에 들어있는 값에 있는 부가정보에 덧붙인다고 했다.
 그런데 이렇게 만들어진 부가정보는 `m`의 부가정보와 같아야 한다.
 
-따라서, _`unit`이 만들어내는 부가정보는 기존 모나드값의 부가정보 `뒤`에 덧붙여도 아무 변화가 없는 부가정보여야 한다._
+따라서, _`unit`이 만들어내는 부가정보는 기존 모나드값의 부가정보 `뒤`에 덧붙여도 아무 문제가 없는 부가정보여야 한다._
 
 또한, _`unit`은 기존 모나드 기저 타입의 값을 새 모나드에 그대로 유지해야 한다._ 
 
@@ -270,4 +268,190 @@ res49: Logged[Int] = Logged(3,List())
 
 
 ### `(m bind f) bind g` == `m bind  { \x -> ((f x) bind g ) }`
+
+먼저 테스트를 해보자.
+
+```
+(Logged(8,List("log1","log2")) bind doubleLogged) bind sqrtLogged
+Logged(8,List("log1","log2")) bind { (x) => (doubleLogged(x) bind sqrtLogged) }
+((2::8::MyNil) bind doubleMyList) bind sqrtMyList
+(2::8::MyNil) bind { (x) => (doubleMyList(x) bind sqrtMyList) }
+```
+
+결과는 다음과 같다.
+```
+scala> (Logged(8,List("log1","log2")) bind doubleLogged) bind sqrtLogged
+res51: Logged[Int] = Logged(4,List(log1, log2, double(8) = 16, sqrt(16).toInt = 4))
+
+scala> Logged(8,List("log1","log2")) bind { (x) => (doubleLogged(x) bind sqrtLogged) }
+res52: Logged[Int] = Logged(4,List(log1, log2, double(8) = 16, sqrt(16).toInt = 4))
+
+scala> ((2::8::MyNil) bind doubleMyList) bind sqrtMyList
+res53: MyList[Int] = Cons(2,Cons(4,MyNil))
+
+scala> (2::8::MyNil) bind { (x) => (doubleMyList(x) bind sqrtMyList) }
+res54: MyList[Int] = Cons(2,Cons(4,MyNil))
+```
+
+앞의 두 절에서 본 예들과 지금의 예를 볼 때 `MyList`와 `Logged`는 모나드 타입 성질을 만족함을 알 수 있다.
+
+제목에 있는  결합 법칙을 살펴보자.
+
+왼쪽 항 `(m bind f) bind g`은 어떤 모나드 값에 `f`를 바인드해 만든 새로운 모나드 값에 `g`를 바인드하는 것이다.
+
+오른쪽 항을 실제 호출한다면 먼저 `f(x)`가 호출되어 거기에 g가 바인드된다. 
+
+실제로 이 결합법칙을 기저타입의 값과 추가정보로 분리해 생각해 보면 다음과 같다.
+
+오른쪽 항을 생각해 볼 떄, 기저타입의 값은 `m`에 있는 값이 추출되어 `{ \x -> ((f x) bind g ) }`에 전달될 것이다.
+그 후 `f(x)`가 호출 되고, 그 다음에 `g`가 바인드되므로 _`g`에 `m`에 있던 기저타입 값에 `f`가 적용된 값이 전달_ 되어 
+최종 모나드 값에 저장된다. 이 관계는 왼쪽항의 경우에도 마찬가지이다. 따라서 `f`, `g`에 기저타입 값이 전달되는 순서는 
+변경되지 않기 때문에, 최종 기저타입 값도 변화될 여지가 없다.
+
+하지만, 추가정보의 경우에는 어떨까?
+
+왼쪽항은 `m`에 있던 추가정보와 `f` 적용 결과 생긴 모나드의 정보가 조합된 다음에 `g` 적용 결과 생긴 모나드의 정보가 조합된다.
+반면 오른쪽 항에서는 먼저 무명 함수 몸체 안의 `bind`에 의해 `f` 적용 결과 생긴 모나드의 정보에 `g` 적용 결과 생긴 모나드의 정보가 
+조합되고, 그 다음에서야 `m`에 있던 정보가 `bind`에 의해 앞부분이 추가된다.
+
+따라서, _`bind`에서 추가정보를 결합하는 로직은 결합법칙이 성립해야 한다._
+
+### 하스켈 문법 구조에서 설명
+
+`(m bind f) bind g`과 `m bind  { \x -> ((f x) bind g ) }`을 보자.
+
+먼저 좌변은 `(m >>= f) >>= g`라고 쓸 수 있고, 이는 다시 `m >>= (\x->f(x)) >>= (\y->g(y))`라고 표현할 수 있다(에타확장).
+
+이를 하스켈 `do`규칙에 넣으면, `do { x <- m; y <- f x; g y }`이 된다. 
+
+우변을 보자. 우변은 `m >>= {\x -> ((f x) bind g)}`이다. 먼저 맨 바깥쪽 바인딩은 `do` 규칙에 완벽히 들어맞는다.
+규칙을 한번 적용하면 `do { x <- m; (f x) bind g }`가 된다. 다시 안쪽 `(f x) bind g`를 보면 `(f x)>>=g`이고, 
+이를 에타확장 시켜서 `(f x)>>=(\y->g(y))`로 만들면 do 규칙에 맞는다. 이는 `do { y <- f(x); g y}`가된다. 
+따라서 최종 식은 `do { x <- m; do { y<-f x; g y } }` 가 된다. 
+
+do e1 ; e2      =        e1 >> e2
+do p <- e1; e2  =        e1 >>= \p -> e2
+
+do { y <- do { x <- m; f x }; g y }
+
+do { x <- m; f x } == m >>= \x -> f(x) == m >>= f
+
+do { m>>=f; g y }
+
+
+
+
+## 모나드 법칙이 중요한 이유
+
+개인적으로는 구현 측면에서 볼 때 `모나드 법칙`이 중요한 이유는 
+만들어진 클래스가 모나드 성질을 만족해서 함수언어들이 제공하는 구조(하스켈의 `do`나 함수언어의 `for`)에 
+자연스럽게 녹아들어가는지 검사할 때 필요하기 때문인 것 같다. (즉, 일반 사용자의 경우에는 
+`do`나 `for`를 사용하는 법만 알아도 될것 같다.) 하지만 무언가 `for`등에 쓰일 구조를 만들어야 한다면 이때는 
+검증을 위해서라도 모나드 법칙등을 검사할 필요가 있을 것이다.
+
+하지만, 앞에서 나왔던 여러 조건들을 정리하면 다음과 같은 4가지가 된다.
+
+1. _`unit`이 만들어내는 부가정보는 부가정보를 결합하는 연산에 대해 어떤 정보도 추가/삭제하지 않는다._
+
+2. _`unit`은 기존 모나드 기저 타입의 값을 새 모나드에 그대로 유지해야 한다._ 
+
+3. _`bind`에서 추가정보를 결합하는 로직은 결합법칙이 성립해야 한다._
+
+4. _`bind`는 모나드에 들어있는 기저타입 값을 `f`에 그대로 전달해야 한다. 아니면 적어도 `f(x)`했을때와 같은 효과가 나타나는 기저타입 값을 전달해야 한다._
+
+
+`MyList`의 경우를 보자.
+
+기저타입은 정수이고, 부가정보로 추가되는 것은 리스트화되면서 들어간 정보이다. 아마도 원소의 순서를 
+정보로 볼 수 있을 것이다. 리스트라는 것이 원소간의 순서를 유지하기 위한 것이라 생각할 수 있으니까. 
+
+`unit`의 경우 기저타입을 감싼 1항목짜리 리스트에 어떤 원소를 추가하거나 삭제하거나 하지 않는다. 
+따라서 이 경우 `unit`은 추가되는 정보는 없고, 타입 변환만을 수행한다고 볼 수 있다.
+
+2는 구현부를 보면 그대로 기저값을 리스트에 넣기만 하므로 성립한다.
+
+3은 (List1 ::: List2) ::: List3 = List1:::(List2:::List3) 이므로 성립한다.
+
+4는 바인드 구현을 보면 된다. 리스트에서 각 원소를 `순서대로` 방문하면서 f를 적용해 
+나온 결과값을 `:::`로 순서를 맞춰 결합시키고 있다. 따라서 이또한 성립된다.
+
+`Logged`의 경우는 어떨까?
+기저타입은 정수였고, 부가정보는 로그 리스트이다.
+
+1. `unit`의 경우 로그로 빈 리스트를 남긴다. 빈 리스트는 `:::`에 대해 항등원이다.
+
+2. `unit`에서 기반타입 값은 그대로 `Logged`의 `value`필드에 저장된다.
+
+3. (List1 ::: List2) ::: List3 = List1:::(List2:::List3) 이므로 성립한다. 
+
+4. 역시 bind 내에서 보면 `value`필드를 `f`에 적용시키고 있다. 
+
+이렇게 앞의 4가지 법칙을 사용하면 좀 더 쉽게 모나드 구성이 가능할 것 같다.
+(엄밀하게 하려면 수학적으로 증명을 해야 하겠지만, 내 능력 밖의 일이다. T.T)
+
+### 바인딩을 잘못한 경우의 한 예
+
+모나드 법칙을 만족하지 않는 바인드 함수를 만든다면 어떨까? 타입은 만족시키지만 모나드 법칙을 만족시키지 않는 
+함수를 만들 수 있을 것이다.
+
+앞에서 로깅관련 바인딩 함수를 잘못 만들었던 것이 기억난다. 한번 이를 다시 적용해 보자.
+
+
+```
+case class LoggedJustOne[T](value:T, log:List[String]) 
+{ 
+  def bind(f:T=>LoggedJustOne[Int]) =  {
+    val value2 = f(value)      // 함수 적용. value는 본 클래스의 필드임에 유의하라.
+    LoggedJustOne(value2.value, value2.log)
+  }
+}
+
+object LoggedJustOne {
+  def unit[T](x:T):LoggedJustOne[T] = LoggedJustOne(x, List())
+}
+
+def doubleLoggedJustOne(x:Int):LoggedJustOne[Int] = LoggedJustOne(x+x, List("double("+x+") = " + (x+x)))
+def sqrtLoggedJustOne(x:Int):LoggedJustOne[Int] = LoggedJustOne(Math.sqrt(x).toInt, List("sqrt("+x+").toInt = " + Math.sqrt(x).toInt))
+```
+
+컴파일 등은 문제가 없다. 한번 모나드 법칙을 검증해 보자.
+
+```
+//1. `(unit x) bind f == f(x)` : (왼쪽 항등원)
+(LoggedJustOne.unit(10)) bind doubleLoggedJustOne
+doubleLoggedJustOne(10)
+
+//2. `m bind return == m` : (오른쪽 항등원)
+LoggedJustOne(10, List("1","2")) bind LoggedJustOne.unit
+
+//3. `(m bind f) bind g == m bind  { \x -> ((f x) bind g ) }` : (결합법칙)
+(LoggedJustOne(10, List("1","2")) bind doubleLoggedJustOne) bind sqrtLoggedJustOne
+LoggedJustOne(10, List("1","2")) bind { (x)=> (doubleLoggedJustOne(x) bind sqrtLoggedJustOne) }
+
+```
+
+결과는 다음과 같다.
+```
+scala> (LoggedJustOne.unit(10)) bind doubleLoggedJustOne
+res62: LoggedJustOne[Int] = LoggedJustOne(20,List(double(10) = 20))
+
+scala> doubleLoggedJustOne(10)
+res63: LoggedJustOne[Int] = LoggedJustOne(20,List(double(10) = 20))
+
+scala> LoggedJustOne(10, List("1","2")) bind LoggedJustOne.unit
+res64: LoggedJustOne[Int] = LoggedJustOne(10,List())
+
+scala> (LoggedJustOne(10, List("1","2")) bind doubleLoggedJustOne) bind sqrtLoggedJustOne
+res65: LoggedJustOne[Int] = LoggedJustOne(4,List(sqrt(20).toInt = 4))
+
+scala> LoggedJustOne(10, List("1","2")) bind { (x)=> (doubleLoggedJustOne(x) bind sqrtLoggedJustOne) }
+res66: LoggedJustOne[Int] = LoggedJustOne(4,List(sqrt(20).toInt = 4))
+```
+
+다른건 문제 없어 보이지만, 오른쪽 항등원 규칙에서 문제가 발생한다.
+
+물론 바인등을 어떻게 잘못 만들었느냐에 따라 차이가 날 수 있다.
+
+
+
 
