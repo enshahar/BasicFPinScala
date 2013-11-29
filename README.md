@@ -6,7 +6,7 @@
 
 먼저 초보용 문서 목차입니다.
 
-1. [소개](Basic/00.introduction.md)
+1. [소개](Basic/00.Introduction.md)
 2. [기본적인 것들](Basic/01.BasicThingies.md)
 3. [수 가지고 놀기](Basic/02.PlayingWithNumbers.md)
 4. [자신만의 타입 만들기](Basic/03.MakingYourOwnType.md)
