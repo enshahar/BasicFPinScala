@@ -1,6 +1,6 @@
 # 스칼라 초중급자를 위한 모나드 해설(2) - 모나드 규칙
 
-[앞의 문서](https://github.com/enshahar/BasicFPinScala/blob/master/Monad.md)에서는 다음 과정을 거쳐 모나드 규칙까지 왔다.
+[앞의 문서](https://github.com/enshahar/BasicFPinScala/blob/master/Intermediate/Monad.md)에서는 다음 과정을 거쳐 모나드 규칙까지 왔다.
 
 1. 어떤 기저 타입 `T`와 추가 정보를 담는 클래스 `C`를 만든다. 필요한 정보에 따라 클래스 구현은 천차만별이다.
 
