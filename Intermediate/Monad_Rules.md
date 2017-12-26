@@ -458,8 +458,7 @@ res66: LoggedJustOne[Int] = LoggedJustOne(4,List(sqrt(20).toInt = 4))
 
 물론 바인딩 등을 어떻게 잘못 만들었느냐에 따라 모니드 규칙을 만족시키지 못하는 부분에 차이가 날 수 있다.
 
-다음 문서에서는 하스켈 스타일 모나드와 스칼라 스타일 모나드가 어떤 관계가 있는지 이번 문서와 [이전문서](https://github.com/enshahar/BasicFPinScala/blob/master/Monad.md)에서  정의한  
-여러 클래스를 가지고 살펴볼 것이다.
+다음 문서에서는 하스켈 스타일 모나드와 스칼라 스타일 모나드가 어떤 관계가 있는지 이번 문서와 [이전문서](/Intermediate/Monad.md)에서 정의한 여러 클래스를 가지고 살펴볼 것이다.
 
 
 
